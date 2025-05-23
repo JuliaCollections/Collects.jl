@@ -1,7 +1,7 @@
 name = "CollectAs"
 uuid = "08986516-18db-4a8b-8eaa-f5ef1828d8f1"
 authors = ["Neven Sajko <s@purelymail.com> and contributors"]
-version = "1.0.0-DEV"
+version = "1.0.0"
 
 [compat]
 julia = "1.9"
