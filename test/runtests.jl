@@ -9,7 +9,7 @@ using Aqua: Aqua
     end
 
     @testset "infinite iterator" begin
-        @test_throws DimensionMismatch collect_as(Vector{Int}, Iterators.cycle(3))
+        @test_throws ArgumentError collect_as(Vector{Int}, Iterators.cycle(3))
     end
 
     @testset "`Tuple`" begin

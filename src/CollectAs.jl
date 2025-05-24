@@ -308,7 +308,7 @@ module CollectAs
 
     Base.@constprop :aggressive function collect_as(type::ConstructorUnionRough, collection)
         if Base.IteratorSize(collection) === Base.IsInfinite()
-            throw(DimensionMismatch("can't collect infinitely many elements into a finite collection"))
+            throw(ArgumentError("can't collect infinitely many elements into a finite collection"))
         end
         collect_as_common(normalize_type(type), collection)
     end
