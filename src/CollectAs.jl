@@ -56,7 +56,7 @@ module CollectAs
         else
             let E = typejoin(typeof(elem), eltype(coll))
                 ret = Set{E}((elem,))
-                ret = sizehint!(ret, length(coll); shrink = false)
+                ret = sizehint!(ret, length(coll))
                 union!(ret, coll)
             end
         end
@@ -165,9 +165,6 @@ module CollectAs
 
     Base.@constprop :aggressive function collect_as_set_with_known_eltype(::Type{T}, collection) where {T}
         ret = Set{T}()
-        if Base.IteratorSize(collection) isa Union{Base.HasLength, Base.HasShape}
-            ret = sizehint!(ret, length(collection); shrink = false)
-        end
         foreach(Base.Fix1(push!, ret), collection)
         ret
     end
