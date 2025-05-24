@@ -11,7 +11,17 @@ A Julia package to collect the elements of a given collection into a collection 
 
 The package exports the name `collect_as`, see its doc string for more information.
 
-This package implements `collect_as` for a few `Base` types, including:
+## Behavioral difference with `collect`
+
+There is one difference in behavior between `collect` and `collect_as`: when the user doesn't provide an element type and the collection is empty, `collect` relies on type inference to determine the desired element type. The `collect_as` function is supposed to never rely on type inference, instead the behavior in this case is specified like so:
+
+* If `eltype(collection)` is concrete, use it as the element type.
+
+* Otherwise, `Union{}` (the bottom type, uninhabited and subtyping each type) is taken as the element type.
+
+## Implementations
+
+This package implements `collect_as` for some `Base` types, including:
 
 * `Set`
 
