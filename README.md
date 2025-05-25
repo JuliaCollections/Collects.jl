@@ -50,9 +50,11 @@ Set{Int64} with 3 elements:
   1
 ```
 
-## Differences in behavior compared to `collect`
+## Differences compared to `collect`
 
-There is one difference in behavior between `collect` and `collect_as`: when the user doesn't provide an element type and the collection is empty, `collect` relies on type inference to determine the desired element type. The `collect_as` function is supposed to never rely on type inference, instead the behavior in this case is specified like so:
+The `collect_as` function is meant to generalize the `collect` function from `Base`. The generalization is accomplished by the fact that the first argument of `collect` is the element type, while the first argument of `collect_as` is the (possibly incomplete/`UnionAll`) return type.
+
+There is one further difference between `collect` and `collect_as`: when the user doesn't provide an element type and the collection is empty, `collect` relies on type inference to determine the desired element type. The `collect_as` function is supposed to never rely on type inference, instead the behavior in this case is specified like so:
 
 * If `eltype(collection)` is concrete, use it as the element type.
 
