@@ -2,7 +2,7 @@ module CollectAs
     export collect_as
 
     """
-        collect_as(output_type::Type, collection)
+        collect_as(output_type::Type, collection)::output_type
 
     Collect the elements of `collection` into a value of type `output_type` and return the resulting collection.
 
@@ -12,11 +12,19 @@ module CollectAs
 
     * If `collection isa output_type` already, a copy of `collection` is returned.
 
+    Regarding the return type:
+
+    * The following must hold for each `output_type` and `iterator` where `collect_as(output_type, iterator)` returns:
+
+      ```julia
+      collect_as(output_type, iterator) isa output_type
+      ```
+
     Regarding the element type of the output:
 
     * It must be consistent with `output_type`.
 
-    * When necessary, the elements of `collection` are converted into the output element type.
+    * If the output element type does not supertype the element type of `collection`, the elements of `collection` are converted into the output element type.
 
     * Rule for determining the element type of the output (when applicable, that is, when the output type depends on its element type, and the output type does not subtype `Tuple`):
 
@@ -35,6 +43,8 @@ module CollectAs
     Other rules for implementors to follow:
 
     * Any added method must take exactly two arguments.
+
+        * If you disagree, open a feature request on Github to achieve agreement for adding to the interface.
     
     * The first argument of any added method must be constrained to be a type (of type `Type`).
 
