@@ -66,7 +66,7 @@ module CollectAs
         else
             let E = typejoin(typeof(elem), eltype(coll))
                 ret = Set{E}((elem,))
-                ret = sizehint!(ret, length(coll))
+                ret = sizehint!(ret, Int(length(coll))::Int)
                 union!(ret, coll)
             end
         end
@@ -77,7 +77,7 @@ module CollectAs
             push!(coll, elem)
         else
             let E = typejoin(typeof(elem), eltype(coll))
-                ret = Vector{E}(undef, length(coll) + 1)
+                ret = Vector{E}(undef, Int(length(coll))::Int + 1)
                 ret = copyto!(ret, coll)
                 ret[end] = elem
                 ret
@@ -232,7 +232,7 @@ module CollectAs
         else
             let
                 size_hint = if Base.IteratorSize(collection) isa Union{Base.HasLength, Base.HasShape}
-                    length(collection)
+                    Int(length(collection))::Int
                 else
                     0
                 end
