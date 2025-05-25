@@ -11,6 +11,45 @@ A Julia package to collect the elements of a given collection into a collection 
 
 The package exports the name `collect_as`, see its doc string for more information.
 
+## Intro
+
+The `collect_as` function takes two arguments:
+
+* the output type
+
+* an arbitrary iterator
+
+It collects the elements of the given iterator into a collection of the given output type.
+
+## Usage examples
+
+```julia-repl
+julia> using CollectAs
+
+julia> collect_as(Vector, 1:3)
+3-element Vector{Int64}:
+ 1
+ 2
+ 3
+
+julia> collect_as(Vector{Float32}, 1:3)
+3-element Vector{Float32}:
+ 1.0
+ 2.0
+ 3.0
+
+julia> collect_as(Matrix, Iterators.map((x -> 0.1 * x), [1 2; 3 4]))
+2×2 Matrix{Float64}:
+ 0.1  0.2
+ 0.3  0.4
+
+julia> collect_as(Set, [1, 2, 2, 1, 3])
+Set{Int64} with 3 elements:
+  2
+  3
+  1
+```
+
 ## Differences in behavior compared to `collect`
 
 There is one difference in behavior between `collect` and `collect_as`: when the user doesn't provide an element type and the collection is empty, `collect` relies on type inference to determine the desired element type. The `collect_as` function is supposed to never rely on type inference, instead the behavior in this case is specified like so:
