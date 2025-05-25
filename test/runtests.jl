@@ -52,7 +52,9 @@ using Aqua: Aqua
     (@isdefined Memory) &&
     @testset "`Memory`" begin
         @test [1, 2, 3] == (@inferred collect_as(Memory, [1, 2, 3]))::Memory{Int}
+        @test [2, 4, 6] == (@inferred collect_as(Memory, Iterators.map((x -> 2 * x), (1, 2, 3))))::Memory{Int}
         @test [1, 2, 3] == (@inferred collect_as(Memory{Int}, Float32[1, 2, 3]))::Memory{Int}
+        @test [1, 3] == (@inferred collect_as(Memory, Iterators.filter(isodd, 1:4)))::Memory{Int}
     end
 
     @testset "Aqua.jl" begin

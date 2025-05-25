@@ -284,12 +284,41 @@ module CollectAs
     end
 
     if optional_memory !== ()
-        Base.@constprop :aggressive function collect_as_memory(::Type{only(optional_memory)}, collection)
+        Base.@constprop :aggressive function collect_as_memory_with_known_eltype_and_known_length(::Type{T}, collection) where {T}
+            vec = Memory{T}(undef, Int(length(collection))::Int)
+            function f((i, elem))
+                vec[i] = elem
+            end
+            foreach(f, enumerate(collection))
+            vec
+        end
+        Base.@constprop :aggressive function collect_as_memory_with_known_eltype_and_unknown_length(::Type{T}, collection) where {T}
+            vec = collect_as(Vector{T}, collection)
+            collect_as_memory_with_known_eltype_and_known_length(T, vec)
+        end
+        Base.@constprop :aggressive function collect_as_memory_with_known_eltype(::Type{T}, collection) where {T}
+            if Base.IteratorSize(collection) isa Union{Base.HasLength, Base.HasShape}
+                collect_as_memory_with_known_eltype_and_known_length(T, collection)
+            else
+                collect_as_memory_with_known_eltype_and_unknown_length(T, collection)
+            end
+        end
+        Base.@constprop :aggressive function collect_as_memory_with_unknown_eltype(collection)
             vec = collect_as(Vector, collection)
-            convert(only(optional_memory){eltype(vec)}, vec)
+            collect_as_memory_with_known_eltype_and_known_length(eltype(vec), vec)
+        end
+        Base.@constprop :aggressive function collect_as_memory_with_optional_eltype(::Type{T}, collection) where {T}
+            if isconcretetype(T)
+                collect_as_memory_with_known_eltype(T, collection)
+            else
+                collect_as_memory_with_unknown_eltype(collection)
+            end
+        end
+        Base.@constprop :aggressive function collect_as_memory(::Type{only(optional_memory)}, collection)
+            collect_as_memory_with_optional_eltype(eltype(collection), collection)
         end
         Base.@constprop :aggressive function collect_as_memory(::Type{only(optional_memory){T}}, collection) where {T}
-            convert(only(optional_memory){T}, collect_as(Vector{T}, collection))
+            collect_as_memory_with_known_eltype(T, collection)
         end
         Base.@constprop :aggressive function collect_as_common_invariant(::Type{C}, collection) where {C <: only(optional_memory)}
             collect_as_memory(C, collection)
