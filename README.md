@@ -60,6 +60,27 @@ There is one further difference between `collect` and `collect_as`: when the use
 
 * Otherwise, `Union{}` (the bottom type, uninhabited and subtyping each type) is taken as the element type.
 
+Example in the REPL:
+
+```julia-repl
+julia> using CollectAs
+
+julia> function f(x)
+           ret = x + 1
+           ret::Int  # this function has perfect type inference even when `typeof(x)` is not known
+       end
+f (generic function with 1 method)
+
+julia> collect_as(Vector, Iterators.map(f, Any[]))  # `collect_as` doesn't let type inference affect the return type
+Union{}[]
+
+julia> collect(Iterators.map(f, Any[]))  # unlike `collect`
+Int64[]
+
+julia> collect_as(Vector, 1:0)  # `eltype` is relied on, though, when it produces a concrete type
+Int64[]
+```
+
 ## Implementations
 
 This package implements `collect_as` for some `Base` types, including:
