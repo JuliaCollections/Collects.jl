@@ -7,83 +7,102 @@
 [![PkgEval](https://JuliaCI.github.io/NanosoldierReports/pkgeval_badges/C/CollectAs.svg)](https://JuliaCI.github.io/NanosoldierReports/pkgeval_badges/C/CollectAs.html)
 [![Aqua](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
-A Julia package to collect the elements of a given collection into a collection of the given type. Generalization of two-arg `collect`.
+A Julia package to collect the elements of a given collection into a collection of the given type. Generalizes the `collect` function from `Base`.
 
-The package exports the name `collect_as`, see its doc string for more information.
+Exports:
 
-## Intro
+* `Collect`, a type
 
-The `collect_as` function takes two arguments:
+* `EmptyIteratorHandling`, a module
+
+## Motivation
+
+The motivation for creating this package is overcoming these issues of the `collect` interface:
+
+* The `collect` function allows the caller to specify the desired element type, but does not allow specifying the desired container type.
+
+    * The interface in this package allows the caller to specify the desired output type, not just the element type.
+
+    * This package implements the interface for several `Base` types and invites other packages to implement the interface for their own types.
+
+    * This is basically Julia issue [#36288](https://github.com/JuliaLang/julia/issues/36288) by Takafumi Arakaki.
+
+* The `collect` function may rely on type inference to determine the element type of the output type when the iterator is empty and the element type wasn't specified by the caller.
+
+    * This package lets the caller decide how is the element type of an empty iterator is determined.
+
+        * By default, type inference is not used.
+
+        * By default, an `ArgumentError` is thrown in case a good element type can not be determined.
+
+This package provides a better interface to replace `collect`.
+
+## Usage examples
+
+A `Collect` may be constructed with a no-argument constructor: `Collect()`.
+
+The resulting callable takes two arguments:
 
 * the output type
 
 * an arbitrary iterator
 
-It collects the elements of the given iterator into a collection of the given output type.
-
-## Usage examples
+It collects the elements of the iterator into a collection with the provided output type as the type of the collection:
 
 ```julia-repl
-julia> using CollectAs
+julia> it = Iterators.map((x -> 0.5 * x), [2, 2, 3]);
 
-julia> collect_as(Vector, 1:3)
-3-element Vector{Int64}:
- 1
- 2
- 3
+julia> Collect()(Vector, it)
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.5
 
-julia> collect_as(Vector{Float32}, 1:3)
+julia> Collect()(Vector{Float32}, it)
 3-element Vector{Float32}:
  1.0
- 2.0
- 3.0
+ 1.0
+ 1.5
 
-julia> collect_as(Matrix, Iterators.map((x -> 0.1 * x), [1 2; 3 4]))
-2×2 Matrix{Float64}:
- 0.1  0.2
- 0.3  0.4
+julia> Collect()(Set, it)
+Set{Float64} with 2 elements:
+  1.0
+  1.5
 
-julia> collect_as(Set, [1, 2, 2, 1, 3])
-Set{Int64} with 3 elements:
-  2
-  3
-  1
+julia> Collect()(Set, [])
+ERROR: ArgumentError: couldn't figure out an appropriate element type
+[...]
+
+julia> Collect()(Set{Number}, [])
+Set{Number}()
 ```
 
-## Differences compared to `collect`
-
-The `collect_as` function is meant to generalize the `collect` function from `Base`. The generalization is accomplished by the fact that the first argument of `collect` is the element type, while the first argument of `collect_as` is the (possibly incomplete/`UnionAll`) return type.
-
-There is one further difference between `collect` and `collect_as`: when the user doesn't provide an element type and the collection is empty, `collect` relies on type inference to determine the desired element type. The `collect_as` function is supposed to never rely on type inference, instead the behavior in this case is specified like so:
-
-* If `eltype(collection)` is concrete, use it as the element type.
-
-* Otherwise, `Union{}` (the bottom type, uninhabited and subtyping each type) is taken as the element type.
-
-Example in the REPL:
+The behavior for an empty iterator when the element type is not known may be adjusted by passing a keyword argument to the constructor:
 
 ```julia-repl
-julia> using CollectAs
+julia> c = Collect(; empty_iterator_handler = Returns(Union{}));
 
-julia> function f(x)
-           ret = x + 1
-           ret::Int  # this function has perfect type inference even when `typeof(x)` is not known
-       end
-f (generic function with 1 method)
+julia> c(Set, [])
+Set{Union{}}()
 
-julia> collect_as(Vector, Iterators.map(f, Any[]))  # `collect_as` doesn't let type inference affect the return type
-Union{}[]
+julia> c = Collect(; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference);
 
-julia> collect(Iterators.map(f, Any[]))  # unlike `collect`
-Int64[]
+julia> c(Set, Iterators.map((x -> 0.5 * x), 1:0))  # behavior may depend on Julia implementation details
+Set{Float64}()
+```
 
-julia> collect_as(Vector, 1:0)  # `eltype` is relied on, though, when it produces a concrete type
-Int64[]
+It's also possible to collect into a collection with a dimensionality greater than one, assuming the shape can be inferred:
+
+```julia-repl
+julia> Collect()(Matrix, Iterators.map(cos, rand(2, 2)))
+2×2 Matrix{Float64}:
+ 0.792873  0.781535
+ 0.553728  0.941229
 ```
 
 ## Implementations
 
-This package implements `collect_as` for some `Base` types, including:
+This package implements the interface for some `Base` types, including:
 
 * `Set`
 
@@ -93,15 +112,27 @@ This package implements `collect_as` for some `Base` types, including:
 
 * `Tuple`
 
-Third-party packages are invited to add CollectAs as a weak dependency and implement `collect_as` for their types in a package extension. Some example packages that implement `collect_as` for types they own:
+Third-party packages are invited to add this package as a (weak or strong) dependency and implement the interface for their types. Some example packages that do this:
 
 * [FixedSizeArrays.jl](https://github.com/JuliaArrays/FixedSizeArrays.jl)
+
+## How to implement for your collection type
+
+To implement the interface for one's own container type, say `Collection`, define a method like this:
+
+```julia
+function (c::Collect)(t::Type{<:Collection}, iterator::Any)
+    ...
+end
+```
+
+If `iterator` turns out empty, `eltype(iterator)` is neither the bottom type nor concrete, and `t` doesn't specify an element type, call `(c.empty_iterator_handler)(iterator)` to try to obtain the element type.
 
 ## Rough specification
 
 ### Identity
 
-If `collection isa output_type` already, a copy of `collection` is returned.
+If `iterator isa output_type` already, a (shallow) copy of `iterator` must be returned.
 
 ### Return type
 
@@ -115,25 +146,25 @@ collect_as(output_type, iterator) isa output_type
 
 The element type must be consistent with `output_type` (as already implied above).
 
-If the output element type does not supertype the element type of `collection`, the elements of `collection` are converted into the output element type.
+If the output element type does not supertype the element type of `iterator`, the elements of `iterator` are converted into the output element type.
 
 Rule for determining the element type of the output (when applicable, that is, when the output type depends on its element type, and the output type does not subtype `Tuple`):
 
 * If the element type is specified by `output_type`, it's the element type of the output.
 
-* Otherwise, if `collection` is empty:
+* Otherwise, if `iterator` is empty:
 
-    * If `isconcretetype(eltype(iterator))`, `eltype(iterator)` is the output element type.
+    * If `isconcretetype(eltype(iterator)) || (eltype(iterator) <: Union{})`, `eltype(iterator)` is the output element type.
 
-    * Otherwise, `Union{}` is the output element type.
+    * Otherwise, the output element type must be determined by `(c.empty_iterator_handler)(iterator)`.
 
-* Otherwise, the output element type is the `typejoin` of the types of the elements of `collection`.
+* Otherwise, the output element type is the `typejoin` of the types of the elements of `iterator`.
 
 ### Shape of the output
 
 The shape of the output must be consistent with `output_type` (as already implied above).
 
-To the extent that the shape is not specified by `output_type`, it is inferred from `Base.IteratorSize(collection)`.
+To the extent that the shape is not specified by `output_type`, it is inferred from `Base.IteratorSize(iterator)`.
 
 ### Other rules for implementers to follow
 
@@ -150,5 +181,5 @@ Make sure you own the constraint that is placed on the first argument. This is r
 * For example, defining a method with a signature like here is *not* allowed, because you don't own `Vector`, even if you do own `A`:
 
   ```julia
-  function CollectAs.collect_as(::Type{Vector}, ::A) end
+  function (::Collect)(::Type{Vector}, ::A) end
   ```

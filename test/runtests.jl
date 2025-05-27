@@ -1,7 +1,11 @@
 using CollectAs
 using Test
 
-@testset "CollectAs.jl" begin
+@testset "collect_as: $collect_as" for collect_as ∈ (
+    Collect(),
+    Collect(; empty_iterator_handler = EmptyIteratorHandling.just_throws),
+    Collect(; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference),
+)
     @testset "bottom type" begin
         @test_throws ArgumentError collect_as(Union{}, ())
         @test_throws ArgumentError collect_as(Union{}, [])
@@ -25,7 +29,7 @@ using Test
     @testset "`Set`" begin
         @test Set((1, 2)) == (@inferred collect_as(Set, [1, 1, 2]))::Set{Int}
         @test Set((1, 2)) == (@inferred collect_as(Set{Int}, Float32[1, 1, 2]))::Set{Int}
-        @test Set{Int}() == (@inferred collect_as(Set, Iterators.map((x -> 3 * x), ())))::Set{Union{}}
+        @test_throws ArgumentError collect_as(Set, Iterators.map((x -> 3 * x), Number[]))
         @test Set((9,)) == (@inferred collect_as(Set, Iterators.map((x -> 3 * x), 3)))::Set{Int}
         @test Set((3, 6)) == (@inferred collect_as(Set, Iterators.map((x -> 3 * x), (1, 2))))::Set{Int}
         @test Set((3, 6)) == (@inferred collect_as(Set, Iterators.map((x -> 3 * x), (1.0, 2))))::Set{Real}
@@ -41,7 +45,7 @@ using Test
             @test [9] == (@inferred collect_as(Vector, Iterators.map((x -> 3 * x), 3)))::Vector{Int}
             @test [1, 3] == (@inferred collect_as(Array, Iterators.filter(isodd, 1:4)))::Vector{Int}
             @test [1, 3] == (@inferred collect_as(Array{Int}, Iterators.map(Float32, Iterators.filter(isodd, 1:4))))::Vector{Int}
-            @test [] == collect_as(Array, Number[])::Vector{Union{}}
+            @test_throws ArgumentError collect_as(Array, Number[])
             @test [3, 6] == (@inferred collect_as(Vector, Iterators.map((x -> 3 * x), (1.0, 2))))::Vector{Real}
         end
         @testset "2D" begin
@@ -58,6 +62,12 @@ using Test
         @test [1, 2, 3] == (@inferred collect_as(Memory{Int}, Float32[1, 2, 3]))::Memory{Int}
         @test [1, 3] == (@inferred collect_as(Memory, Iterators.filter(isodd, 1:4)))::Memory{Int}
     end
+end
+
+@testset "type inference" begin
+    iterator = Iterators.map((x -> 0.5 * x), 1:0)
+    (Float64 === CollectAs.EmptyIteratorHandling.@default_eltype iterator) &&
+    @test [] == (@inferred Collect(; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference)(Vector, iterator))::Vector{Float64}
 end
 
 module TestAqua
