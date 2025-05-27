@@ -113,7 +113,7 @@ collect_as(output_type, iterator) isa output_type
 
 ### Element type of the output
 
-The element type must be consistent with `output_type` (as alredy implied above).
+The element type must be consistent with `output_type` (as already implied above).
 
 If the output element type does not supertype the element type of `collection`, the elements of `collection` are converted into the output element type.
 
@@ -131,7 +131,7 @@ Rule for determining the element type of the output (when applicable, that is, w
 
 ### Shape of the output
 
-The shape of the output must be consistent with `output_type` (as alredy implied above).
+The shape of the output must be consistent with `output_type` (as already implied above).
 
 To the extent that the shape is not specified by `output_type`, it is inferred from `Base.IteratorSize(collection)`.
 
