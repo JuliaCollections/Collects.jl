@@ -295,7 +295,7 @@ module CollectAs
             vec
         end
         Base.@constprop :aggressive function collect_as_memory_with_known_eltype_and_unknown_length(::Type{T}, collection) where {T}
-            vec = collect_as(Vector{T}, collection)
+            vec = collect_as_array_with_known_eltype(T, 1, collection)
             collect_as_memory_with_known_eltype_and_known_length(T, vec)
         end
         Base.@constprop :aggressive function collect_as_memory_with_known_eltype(::Type{T}, collection) where {T}
@@ -306,7 +306,7 @@ module CollectAs
             end
         end
         Base.@constprop :aggressive function collect_as_memory_with_unknown_eltype(collection)
-            vec = collect_as(Vector, collection)
+            vec = collect_as_array_with_unknown_eltype(1, collection)
             collect_as_memory_with_known_eltype_and_known_length(eltype(vec), vec)
         end
         Base.@constprop :aggressive function collect_as_memory_with_optional_eltype(::Type{T}, collection) where {T}
@@ -328,7 +328,7 @@ module CollectAs
     end
 
     Base.@constprop :aggressive function collect_as_tuple(::Type{Tuple}, iterator)
-        (collect_as(Vector, iterator)...,)
+        (collect_as_array_with_unknown_eltype(1, iterator)...,)
     end
 
     Base.@constprop :aggressive function collect_as_tuple(::Type{Tuple}, iterator::Union{optional_memory..., Array, Pair, NamedTuple, Number})
