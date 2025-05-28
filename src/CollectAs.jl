@@ -328,7 +328,14 @@ module CollectAs
     end
 
     Base.@constprop :aggressive function collect_as_tuple(::Type{Tuple}, iterator)
-        (collect_as_array_with_unknown_eltype(1, iterator)...,)
+        t = normalize_type(eltype(iterator))
+        if isconcretetype(t)
+            (collect_as_array_with_known_eltype(t, 1, iterator)...,)
+        elseif t <: Union{}
+            (iterator...,)::Tuple{}
+        else
+            (collect_as_array_with_unknown_eltype(1, iterator)...,)
+        end
     end
 
     Base.@constprop :aggressive function collect_as_tuple(::Type{Tuple}, iterator::Union{optional_memory..., Array, Pair, NamedTuple, Number})

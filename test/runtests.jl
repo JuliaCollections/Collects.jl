@@ -14,11 +14,13 @@ using Aqua: Aqua
 
     @testset "`Tuple`" begin
         @test () === @inferred collect_as(Tuple, ())
+        @test () === @inferred collect_as(Tuple, Iterators.filter(isodd, Union{}[]))
         @test (3,) === @inferred collect_as(Tuple, 3)
         @test () === collect_as(Tuple, [])
         @test (1, 2, 3) === collect_as(Tuple, [1, 2, 3])
         @test collect_as(Tuple, [1, 2, 3, 4]) === collect_as(Tuple, reshape([1, 2, 3, 4], (2, 2)))
         @test (1, 3) === collect_as(Tuple, Iterators.filter(isodd, 1:4))
+        @test (0.5, 1.5) === collect_as(Tuple, Iterators.map((x -> 0.5 * x), Iterators.filter(isodd, 1:4)))
     end
 
     @testset "`Set`" begin
