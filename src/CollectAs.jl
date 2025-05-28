@@ -1,6 +1,16 @@
 module CollectAs
     export collect_as
 
+    module TypeUtil
+        export normalize
+        Base.@constprop :aggressive function normalize(::Type{T}) where {T}
+            function f(::Val{S}) where {S}
+                S  # https://github.com/JuliaLang/julia/discussions/58515
+            end
+            f(Val{T}())
+        end
+    end
+
     """
         collect_as(output_type::Type, collection)::output_type
 
@@ -112,13 +122,6 @@ module CollectAs
 
     Base.@constprop :aggressive function check_ndims_consistency(ndims::Int, collection)
         check_ndims_consistency_impl(ndims, infer_ndims(collection))
-    end
-
-    Base.@constprop :aggressive function normalize_type(::Type{T}) where {T}
-        function normalize_type_val(::Val{S}) where {S}
-            S  # https://github.com/JuliaLang/julia/discussions/58515
-        end
-        normalize_type_val(Val{T}())
     end
 
     # Prevent accidental type piracy in dependent packages.
@@ -328,7 +331,7 @@ module CollectAs
     end
 
     Base.@constprop :aggressive function collect_as_tuple(::Type{Tuple}, iterator)
-        t = normalize_type(eltype(iterator))
+        t = TypeUtil.normalize(eltype(iterator))
         if isconcretetype(t)
             (collect_as_array_with_known_eltype(t, 1, iterator)...,)
         elseif t <: Union{}
@@ -358,6 +361,6 @@ module CollectAs
         if Base.IteratorSize(collection) === Base.IsInfinite()
             throw(ArgumentError("can't collect infinitely many elements into a finite collection"))
         end
-        collect_as_common(normalize_type(type), collection)
+        collect_as_common(TypeUtil.normalize(type), collection)
     end
 end
