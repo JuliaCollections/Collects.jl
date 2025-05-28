@@ -33,6 +33,7 @@ using Aqua: Aqua
     @testset "`Array`" begin
         @testset "0D" begin
             @test fill(3) == (@inferred collect_as(Array{<:Any, 0}, 3))::Array{Int, 0}
+            @test fill(3) == (@inferred collect_as(Array{Float32, 0}, 3))::Array{Float32, 0}
             @test fill(9) == (@inferred collect_as(Array{<:Any, 0}, Iterators.map((x -> 3 * x), 3)))::Array{Int, 0}
         end
         @testset "1D" begin
