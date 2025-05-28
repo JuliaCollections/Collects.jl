@@ -1,6 +1,5 @@
 using CollectAs
 using Test
-using Aqua: Aqua
 
 @testset "CollectAs.jl" begin
     @testset "bottom type" begin
@@ -59,6 +58,12 @@ using Aqua: Aqua
         @test [1, 2, 3] == (@inferred collect_as(Memory{Int}, Float32[1, 2, 3]))::Memory{Int}
         @test [1, 3] == (@inferred collect_as(Memory, Iterators.filter(isodd, 1:4)))::Memory{Int}
     end
+end
+
+module TestAqua
+    using CollectAs
+    using Test
+    using Aqua: Aqua
 
     @testset "Aqua.jl" begin
         Aqua.test_all(CollectAs)
