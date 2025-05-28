@@ -61,10 +61,11 @@ module CollectAs
     function collect_as end
 
     Base.@constprop :aggressive function push!!(coll::Set, elem)
-        if elem isa eltype(coll)
+        elt = eltype(coll)
+        if elem isa elt
             push!(coll, elem)
         else
-            let E = typejoin(typeof(elem), eltype(coll))
+            let E = typejoin(typeof(elem), elt)
                 ret = Set{E}((elem,))
                 ret = sizehint!(ret, Int(length(coll))::Int)
                 union!(ret, coll)
@@ -73,10 +74,11 @@ module CollectAs
     end
 
     Base.@constprop :aggressive function push!!(coll::Vector, elem)
-        if elem isa eltype(coll)
+        elt = eltype(coll)
+        if elem isa elt
             push!(coll, elem)
         else
-            let E = typejoin(typeof(elem), eltype(coll))
+            let E = typejoin(typeof(elem), elt)
                 ret = Vector{E}(undef, Int(length(coll))::Int + 1)
                 ret = copyto!(ret, coll)
                 ret[end] = elem
