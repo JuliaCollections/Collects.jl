@@ -1,8 +1,11 @@
 module CollectAs
-    export collect_as
+    export Collect, EmptyIteratorHandling
 
     module TypeUtil
-        export normalize
+        export is_precise, normalize
+        Base.@constprop :aggressive function is_precise(::Type{T}) where {T}
+            isconcretetype(T) || (T <: Union{})
+        end
         Base.@constprop :aggressive function normalize(::Type{T}) where {T}
             function f(::Val{S}) where {S}
                 S  # https://github.com/JuliaLang/julia/discussions/58515
@@ -12,63 +15,95 @@ module CollectAs
     end
 
     """
-        collect_as(output_type::Type, collection)::output_type
+        EmptyIteratorHandling::Module
 
-    Collect the elements of `collection` into a value of type `output_type` and return the resulting collection.
-
-    For context, `collect_as` is a generalization of the two-argument `collect` from `Base`.
-
-    Regarding identity:
-
-    * If `collection isa output_type` already, a copy of `collection` is returned.
-
-    Regarding the return type:
-
-    * The following must hold for each `output_type` and `iterator` where `collect_as(output_type, iterator)` returns:
-
-      ```julia
-      collect_as(output_type, iterator) isa output_type
-      ```
-
-    Regarding the element type of the output:
-
-    * It must be consistent with `output_type`.
-
-    * If the output element type does not supertype the element type of `collection`, the elements of `collection` are converted into the output element type.
-
-    * Rule for determining the element type of the output (when applicable, that is, when the output type depends on its element type, and the output type does not subtype `Tuple`):
-
-        * If the element type is specified by `output_type`, it's the element type of the output.
-
-        * Otherwise, if `collection` is empty: If `isconcretetype(eltype(iterator))`, `eltype(iterator)` is the output element type, otherwise, `Union{}` is the output element type.
-
-        * Otherwise, the output element type is the `typejoin` of the types of the elements of `collection`.
-
-    Regarding the shape of the output:
-
-    * It must be consistent with `output_type`.
-
-    * To the extent that the shape is not specified by `output_type`, it is inferred from `Base.IteratorSize(collection)`.
-
-    Other rules for implementors to follow:
-
-    * Any added method must take exactly two arguments.
-
-        * If you disagree, open a feature request on Github to achieve agreement for adding to the interface.
-    
-    * The first argument of any added method must be constrained to be a type (of type `Type`).
-
-    * Make sure you own the constraint that is placed on the first argument. This is required even when you know you own the second argument.
-
-        * The rationale for this rule is to prevent causing ambiguity for other packages.
-
-        * For example, defining a method with a signature like here is *not* allowed, because you don't own `Vector`, even if you do own `A`:
-
-          ```julia
-          function CollectAs.collect_as(::Type{Vector}, ::A) end
-          ```
+    Exports [`just_throws`](@ref) and [`may_use_type_inference`](@ref), which are
+    meant as arguments for [`Collect`](@ref).
     """
-    function collect_as end
+    module EmptyIteratorHandling
+        export just_throws, may_use_type_inference
+        using ..TypeUtil
+        const err = ArgumentError("couldn't figure out an appropriate element type")
+        """
+            just_throws(iterator)::Union{}
+
+        Throw an `ArgumentError`.
+        """
+        function just_throws(::Any)
+            throw(err)
+        end
+        if isdefined(Base, Symbol("@default_eltype"))
+            macro default_eltype(itr)
+                i = esc(itr)
+                :(Base.@default_eltype $i)
+            end
+        else
+            # correct fallback
+            macro default_eltype(::Any)
+                Any
+            end
+        end
+        """
+            may_use_type_inference(iterator)::Type
+
+        Run type inference to try to determine the element type. If the obtained type is
+        either concrete or bottom, return it, or an equal type.
+
+        Throw otherwise.
+
+        Beware:
+
+        * Type inference is accessed using `Base.@default_eltype`, which is not a public
+          interface of `Base`, thus it may change behavior on upgrading Julia,
+          potentially breaking this function.
+
+        * The exact result of a type inference query is, of course, just an
+          implementation detail of Julia's compiler.
+
+        * Type inference results may differ from run to run. Type inference is stateful,
+          some things that may affect the results of a type inference query are:
+          defining a method, loading a package or running a type inference query.
+
+        * Relying on type inference may prevent compiler optimizations, such as constant
+          folding.
+
+        * Publicly exposing the results of type inference makes for a bad interface.
+          Only use it as an optimization.
+        """
+        Base.@constprop :aggressive function may_use_type_inference(iterator)
+            @inline
+            s = @inline TypeUtil.normalize(@default_eltype iterator)
+            if TypeUtil.is_precise(s)
+                return s
+            end
+            just_throws(iterator)
+        end
+    end
+
+    using .EmptyIteratorHandling
+
+    """
+        Collect(; empty_iterator_handler)
+
+    Return a callable value. The returned callable behaves similarly to the `collect`
+    function from `Base`. In fact it generalizes `collect`, and is meant to be *what
+    `collect` should have been*. See the package Readme for more details.
+
+    The keyword argument `empty_iterator_handler`:
+
+    * configures how the returned callable will behave when called with an empty
+      iterator
+
+    * defaults to [`just_throws`](@ref) from [`EmptyIteratorHandling`](@ref).
+
+    * is accessible as a property of any `Collect` value
+    """
+    struct Collect{EmptyIteratorHandler} <: Function
+        empty_iterator_handler::EmptyIteratorHandler
+        Base.@constprop :aggressive function Collect(; empty_iterator_handler::EIH = just_throws) where {EIH}
+            new{EIH}(empty_iterator_handler)
+        end
+    end
 
     Base.@constprop :aggressive function push!!(coll::Set, elem)
         elt = eltype(coll)
@@ -125,7 +160,7 @@ module CollectAs
     end
 
     # Prevent accidental type piracy in dependent packages.
-    function collect_as(::Type{Union{}}, ::Any)
+    function (::Collect)(::Type{Union{}}, ::Any)
         throw(ArgumentError("`Union{}` is not a type of a collection"))
     end
 
@@ -163,10 +198,10 @@ module CollectAs
 
     const ConstructorUnionFine = Union{Type{Tuple}, ConstructorUnionFineInvariant}
 
-    Base.@constprop :aggressive function collect_as_set_with_unknown_eltype(collection)
+    Base.@constprop :aggressive function collect_as_set_with_unknown_eltype(e::E, collection) where {E}
         iter = Iterators.peel(collection)
         if iter === nothing
-            Set{Union{}}()
+            Set{e(collection)}()
         else
             let (fir, rest) = iter
                 coll = Set((fir,))
@@ -184,20 +219,20 @@ module CollectAs
         ret
     end
 
-    Base.@constprop :aggressive function collect_as_set(::Type{Set}, collection)
+    Base.@constprop :aggressive function collect_as_set(e::E, ::Type{Set}, collection) where {E}
         T = eltype(collection)
-        if isconcretetype(T)
+        if TypeUtil.is_precise(T)
             collect_as_set_with_known_eltype(T, collection)
         else
-            collect_as_set_with_unknown_eltype(collection)
+            collect_as_set_with_unknown_eltype(e, collection)
         end
     end
 
-    Base.@constprop :aggressive function collect_as_set(::Type{Set{T}}, collection) where {T}
+    Base.@constprop :aggressive function collect_as_set(::Any, ::Type{Set{T}}, collection) where {T}
         collect_as_set_with_known_eltype(T, collection)
     end
 
-    Base.@constprop :aggressive function collect_as_array_with_unknown_eltype(ndims::Int, collection)
+    Base.@constprop :aggressive function collect_as_array_with_unknown_eltype(e::E, ndims::Int, collection) where {E}
         ndims = check_ndims_consistency(ndims, collection)
         if iszero(ndims)
             let e = only(collection)
@@ -208,7 +243,7 @@ module CollectAs
         else
             let iter = Iterators.peel(collection)
                 if iter === nothing
-                    Array{Union{}, ndims}(undef, zeros_tuple(ndims))
+                    Array{e(collection), ndims}(undef, zeros_tuple(ndims))
                 else
                     let (fir, rest) = iter
                         vec = [fir]
@@ -252,40 +287,40 @@ module CollectAs
         end
     end
 
-    Base.@constprop :aggressive function collect_as_array_with_optional_eltype(::Type{T}, N::Int, collection) where {T}
-        if isconcretetype(T)
+    Base.@constprop :aggressive function collect_as_array_with_optional_eltype(e::E, ::Type{T}, N::Int, collection) where {E, T}
+        if TypeUtil.is_precise(T)
             collect_as_array_with_known_eltype(T, N, collection)
         else
-            collect_as_array_with_unknown_eltype(N, collection)
+            collect_as_array_with_unknown_eltype(e, N, collection)
         end
     end
 
-    Base.@constprop :aggressive function collect_as_array(::Type{Array}, collection)
+    Base.@constprop :aggressive function collect_as_array(e::E, ::Type{Array}, collection) where {E}
         T = eltype(collection)
         N = infer_ndims(collection)
-        collect_as_array_with_optional_eltype(T, N, collection)
+        collect_as_array_with_optional_eltype(e, T, N, collection)
     end
 
-    Base.@constprop :aggressive function collect_as_array(::Type{Array{T}}, collection) where {T}
+    Base.@constprop :aggressive function collect_as_array(::Any, ::Type{Array{T}}, collection) where {T}
         N = infer_ndims(collection)
         collect_as_array_with_known_eltype(T, N, collection)
     end
 
-    Base.@constprop :aggressive function collect_as_array(::Type{Array{T, N} where {T}}, collection) where {N}
+    Base.@constprop :aggressive function collect_as_array(e::E, ::Type{Array{T, N} where {T}}, collection) where {E, N}
         T = eltype(collection)
-        collect_as_array_with_optional_eltype(T, N, collection)
+        collect_as_array_with_optional_eltype(e, T, N, collection)
     end
 
-    Base.@constprop :aggressive function collect_as_array(::Type{Array{T, N}}, collection) where {T, N}
+    Base.@constprop :aggressive function collect_as_array(::Any, ::Type{Array{T, N}}, collection) where {T, N}
         collect_as_array_with_known_eltype(T, N, collection)
     end
 
-    Base.@constprop :aggressive function collect_as_common_invariant(::Type{C}, collection) where {C <: Set}
-        collect_as_set(C, collection)
+    Base.@constprop :aggressive function collect_as_common_invariant(e::E, ::Type{C}, collection) where {E, C <: Set}
+        collect_as_set(e, C, collection)
     end
 
-    Base.@constprop :aggressive function collect_as_common_invariant(::Type{C}, collection) where {C <: Array}
-        collect_as_array(C, collection)
+    Base.@constprop :aggressive function collect_as_common_invariant(e::E, ::Type{C}, collection) where {E, C <: Array}
+        collect_as_array(e, C, collection)
     end
 
     if optional_memory !== ()
@@ -308,25 +343,25 @@ module CollectAs
                 collect_as_memory_with_known_eltype_and_unknown_length(T, collection)
             end
         end
-        Base.@constprop :aggressive function collect_as_memory_with_unknown_eltype(collection)
-            vec = collect_as_array_with_unknown_eltype(1, collection)
+        Base.@constprop :aggressive function collect_as_memory_with_unknown_eltype(e::E, collection) where {E}
+            vec = collect_as_array_with_unknown_eltype(e, 1, collection)
             collect_as_memory_with_known_eltype_and_known_length(eltype(vec), vec)
         end
-        Base.@constprop :aggressive function collect_as_memory_with_optional_eltype(::Type{T}, collection) where {T}
-            if isconcretetype(T)
+        Base.@constprop :aggressive function collect_as_memory_with_optional_eltype(e::E, ::Type{T}, collection) where {E, T}
+            if TypeUtil.is_precise(T)
                 collect_as_memory_with_known_eltype(T, collection)
             else
-                collect_as_memory_with_unknown_eltype(collection)
+                collect_as_memory_with_unknown_eltype(e, collection)
             end
         end
-        Base.@constprop :aggressive function collect_as_memory(::Type{only(optional_memory)}, collection)
-            collect_as_memory_with_optional_eltype(eltype(collection), collection)
+        Base.@constprop :aggressive function collect_as_memory(e::E, ::Type{only(optional_memory)}, collection) where {E}
+            collect_as_memory_with_optional_eltype(e, eltype(collection), collection)
         end
-        Base.@constprop :aggressive function collect_as_memory(::Type{only(optional_memory){T}}, collection) where {T}
+        Base.@constprop :aggressive function collect_as_memory(::Any, ::Type{only(optional_memory){T}}, collection) where {T}
             collect_as_memory_with_known_eltype(T, collection)
         end
-        Base.@constprop :aggressive function collect_as_common_invariant(::Type{C}, collection) where {C <: only(optional_memory)}
-            collect_as_memory(C, collection)
+        Base.@constprop :aggressive function collect_as_common_invariant(e::E, ::Type{C}, collection) where {E, C <: only(optional_memory)}
+            collect_as_memory(e, C, collection)
         end
     end
 
@@ -337,7 +372,7 @@ module CollectAs
         elseif t <: Union{}
             (iterator...,)::Tuple{}
         else
-            (collect_as_array_with_unknown_eltype(1, iterator)...,)
+            (collect_as_array_with_unknown_eltype(Returns(Union{}), 1, iterator)...,)
         end
     end
 
@@ -349,18 +384,18 @@ module CollectAs
         iterator
     end
 
-    Base.@constprop :aggressive function collect_as_common(type::ConstructorUnionFineInvariant, collection)
-        collect_as_common_invariant(type, collection)
+    Base.@constprop :aggressive function collect_as_common(e::E, type::ConstructorUnionFineInvariant, collection) where {E}
+        collect_as_common_invariant(e, type, collection)
     end
 
-    Base.@constprop :aggressive function collect_as_common(type::Type{<:Tuple}, collection)
+    Base.@constprop :aggressive function collect_as_common(::Any, type::Type{<:Tuple}, collection)
         collect_as_tuple(type, collection)
     end
 
-    Base.@constprop :aggressive function collect_as(type::ConstructorUnionRough, collection)
+    Base.@constprop :aggressive function (collect::Collect)(type::ConstructorUnionRough, collection)
         if Base.IteratorSize(collection) === Base.IsInfinite()
             throw(ArgumentError("can't collect infinitely many elements into a finite collection"))
         end
-        collect_as_common(TypeUtil.normalize(type), collection)
+        collect_as_common(collect.empty_iterator_handler, TypeUtil.normalize(type), collection)
     end
 end
