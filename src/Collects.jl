@@ -261,6 +261,21 @@ module Collects
         end
     end
 
+    Base.@constprop :aggressive function collect_as_vectorlike_with_known_eltype_and_length(::Type{V}, collection) where {V <: AbstractVector}
+        vec = V(undef, Int(length(collection))::Int)
+        function f((i, elem))
+            vec[i] = elem
+        end
+        foreach(f, enumerate(collection))
+        vec
+    end
+
+    Base.@constprop :aggressive function collect_as_vector_with_known_eltype(::Type{V}, collection) where {V <: AbstractVector}
+        vec = V(undef, 0)
+        foreach(Base.Fix1(push!, vec), collection)
+        vec
+    end
+
     Base.@constprop :aggressive function collect_as_array_with_known_eltype(::Type{T}, ndims::Int, collection) where {T}
         ndims = check_ndims_consistency(ndims, collection)
         if iszero(ndims)
@@ -270,14 +285,12 @@ module Collects
                 ret
             end
         else
-            let
-                size_hint = if Base.IteratorSize(collection) isa Union{Base.HasLength, Base.HasShape}
-                    Int(length(collection))::Int
+            let V = Vector{T}
+                vec = if Base.IteratorSize(collection) isa Union{Base.HasLength, Base.HasShape}
+                    collect_as_vectorlike_with_known_eltype_and_length(V, collection)
                 else
-                    0
+                    collect_as_vector_with_known_eltype(V, collection)
                 end
-                vec = empty!(Vector{T}(undef, size_hint))
-                foreach(Base.Fix1(push!, vec), collection)
                 if isone(ndims)
                     vec
                 else
@@ -325,12 +338,7 @@ module Collects
 
     if optional_memory !== ()
         Base.@constprop :aggressive function collect_as_memory_with_known_eltype_and_known_length(::Type{T}, collection) where {T}
-            vec = Memory{T}(undef, Int(length(collection))::Int)
-            function f((i, elem))
-                vec[i] = elem
-            end
-            foreach(f, enumerate(collection))
-            vec
+            collect_as_vectorlike_with_known_eltype_and_length(Memory{T}, collection)
         end
         Base.@constprop :aggressive function collect_as_memory_with_known_eltype_and_unknown_length(::Type{T}, collection) where {T}
             vec = collect_as_array_with_known_eltype(T, 1, collection)
