@@ -136,11 +136,7 @@ If `iterator isa output_type` already, a (shallow) copy of `iterator` must be re
 
 ### Return type
 
-The following must hold for each `output_type` and `iterator` where `collect_as(output_type, iterator)` returns:
-
-```julia
-collect_as(output_type, iterator) isa output_type
-```
+For each `c`, `output_type` and `iterator` such that `c isa Collect`, if `c(output_type, iterator)` returns a value, the value must be of type `output_type`.
 
 ### Element type of the output
 
