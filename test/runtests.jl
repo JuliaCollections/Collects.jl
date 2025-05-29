@@ -1,4 +1,4 @@
-using CollectAs
+using Collects
 using Test
 
 @testset "collect_as: $collect_as" for collect_as ∈ (
@@ -66,16 +66,16 @@ end
 
 @testset "type inference" begin
     iterator = Iterators.map((x -> 0.5 * x), 1:0)
-    (Float64 === CollectAs.EmptyIteratorHandling.@default_eltype iterator) &&
+    (Float64 === Collects.EmptyIteratorHandling.@default_eltype iterator) &&
     @test [] == (@inferred Collect(; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference)(Vector, iterator))::Vector{Float64}
 end
 
 module TestAqua
-    using CollectAs
+    using Collects
     using Test
     using Aqua: Aqua
 
     @testset "Aqua.jl" begin
-        Aqua.test_all(CollectAs)
+        Aqua.test_all(Collects)
     end
 end

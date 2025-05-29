@@ -1,4 +1,4 @@
-module CollectAs
+module Collects
     export Collect, EmptyIteratorHandling
 
     module TypeUtil
