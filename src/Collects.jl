@@ -261,11 +261,7 @@ module Collects
 
     Base.@constprop :aggressive function collect_as_vectorlike_with_known_eltype_and_length(::Type{V}, collection) where {V <: AbstractVector}
         vec = V(undef, Int(length(collection))::Int)
-        function f((i, elem))
-            vec[i] = elem
-        end
-        foreach(f, enumerate(collection))
-        vec
+        copyto!(vec, collection)
     end
 
     Base.@constprop :aggressive function collect_as_vector_with_known_eltype(::Type{V}, collection) where {V <: AbstractVector}
