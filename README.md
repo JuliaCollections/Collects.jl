@@ -11,7 +11,9 @@ A Julia package to collect the elements of a given collection into a collection 
 
 Exports:
 
-* `Collect`, a type
+* `collect_as`, a function: the user-level interface
+
+* `Collect`, a type: the lower-level interface, meant primarily for adding methods for package authors
 
 * `EmptyIteratorHandling`, a module
 
@@ -39,65 +41,73 @@ This package provides a better interface to replace `collect`.
 
 ## Usage examples
 
-A `Collect` may be constructed with a no-argument constructor: `Collect()`.
-
-The resulting callable takes two arguments:
+The `collect_as` function takes two positional arguments:
 
 * the output type
 
 * an arbitrary iterator
 
-It collects the elements of the iterator into a collection with the provided output type as the type of the collection:
+It collects the elements of the iterator into a collection with the provided output type as the
+type of the collection.
 
 ```julia-repl
 julia> it = Iterators.map((x -> 0.5 * x), [2, 2, 3]);
 
-julia> Collect()(Vector, it)
+julia> collect_as(Vector, it)
 3-element Vector{Float64}:
  1.0
  1.0
  1.5
 
-julia> Collect()(Vector{Float32}, it)
+julia> collect_as(Vector{Float32}, it)
 3-element Vector{Float32}:
  1.0
  1.0
  1.5
 
-julia> Collect()(Set, it)
+julia> collect_as(Set, it)
 Set{Float64} with 2 elements:
   1.0
   1.5
 
-julia> Collect()(Set, [])
+julia> collect_as(Set, [])
 ERROR: ArgumentError: couldn't figure out an appropriate element type
 [...]
 
-julia> Collect()(Set{Number}, [])
+julia> collect_as(Set{Number}, [])
 Set{Number}()
 ```
 
-The behavior for an empty iterator when the element type is not known may be adjusted by passing a keyword argument to the constructor:
+The behavior for an empty iterator when the element type is not known may be adjusted by passing a keyword argument:
 
 ```julia-repl
-julia> c = Collect(; empty_iterator_handler = Returns(Union{}));
-
-julia> c(Set, [])
+julia> collect_as(Set, []; empty_iterator_handler = Returns(Union{}))
 Set{Union{}}()
 
-julia> c = Collect(; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference);
-
-julia> c(Set, Iterators.map((x -> 0.5 * x), 1:0))  # behavior may depend on Julia implementation details
+julia> collect_as(Set, Iterators.map((x -> 0.5 * x), 1:0); empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference)
 Set{Float64}()
 ```
+
+NB: behavior may depend on Julia implementation details when using `may_use_type_inference`.
 
 It's also possible to collect into a collection with a dimensionality greater than one, assuming the shape can be inferred:
 
 ```julia-repl
-julia> Collect()(Matrix, Iterators.map(cos, rand(2, 2)))
+julia> collect_as(Matrix, Iterators.map(cos, rand(2, 2)))
 2×2 Matrix{Float64}:
  0.792873  0.781535
  0.553728  0.941229
+```
+
+The `collect_as` function just forwards to the lower-level interface around `Collect`. The lower level interface is used like so:
+
+```julia-repl
+julia> c = Collect(; empty_iterator_handler = EmptyIteratorHandling.just_throws);
+
+julia> c(Vector, (3, 3.0))
+2-element Vector{Real}:
+ 3
+ 3.0
 ```
 
 ## Implementations

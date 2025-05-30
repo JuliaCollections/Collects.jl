@@ -1,5 +1,5 @@
 module Collects
-    export Collect, EmptyIteratorHandling
+    export Collect, EmptyIteratorHandling, collect_as
 
     module TypeUtil
         export is_precise, normalize
@@ -399,5 +399,19 @@ module Collects
             throw(ArgumentError("can't collect infinitely many elements into a finite collection"))
         end
         collect_as_common(collect.empty_iterator_handler, TypeUtil.normalize(type), collection)
+    end
+
+    """
+        collect_as(output_type::Type, collection; empty_iterator_handler)
+
+    Collect `collection` into a collection of type `output_type`. The optional keyword
+    argument `empty_iterator_handler` may be used to control the behavior for when
+    `collection` is empty.
+
+    Do not add any method. This function just forwards to [`Collect`](@ref).
+    """
+    Base.@constprop :aggressive function collect_as(::Type{T}, collection; empty_iterator_handler::EIH = just_throws) where {T, EIH}
+        c = Collect(; empty_iterator_handler)
+        c(T, collection)
     end
 end
