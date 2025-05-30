@@ -94,13 +94,11 @@ module Collects
     * configures how the returned callable will behave when called with an empty
       iterator
 
-    * defaults to [`just_throws`](@ref) from [`EmptyIteratorHandling`](@ref).
-
     * is accessible as a property of any `Collect` value
     """
     struct Collect{EmptyIteratorHandler} <: Function
         empty_iterator_handler::EmptyIteratorHandler
-        Base.@constprop :aggressive function Collect(; empty_iterator_handler::EIH = just_throws) where {EIH}
+        Base.@constprop :aggressive function Collect(; empty_iterator_handler::EIH) where {EIH}
             new{EIH}(empty_iterator_handler)
         end
     end
