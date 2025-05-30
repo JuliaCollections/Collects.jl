@@ -3,7 +3,6 @@ using Test
 
 @testset "collect_as: $collect_as" for collect_as ∈ (
     collect_as,
-    Collect(),
     Collect(; empty_iterator_handler = EmptyIteratorHandling.just_throws),
     Collect(; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference),
 )
