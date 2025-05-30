@@ -196,8 +196,6 @@ module Collects
         end,
     }
 
-    const ConstructorUnionFine = Union{Type{Tuple}, ConstructorUnionFineInvariant}
-
     Base.@constprop :aggressive function collect_as_set_with_unknown_eltype(e::E, collection) where {E}
         iter = Iterators.peel(collection)
         if iter === nothing
