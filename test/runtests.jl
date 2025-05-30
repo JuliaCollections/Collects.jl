@@ -2,6 +2,7 @@ using Collects
 using Test
 
 @testset "collect_as: $collect_as" for collect_as ∈ (
+    collect_as,
     Collect(),
     Collect(; empty_iterator_handler = EmptyIteratorHandling.just_throws),
     Collect(; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference),
@@ -67,7 +68,7 @@ end
 @testset "type inference" begin
     iterator = Iterators.map((x -> 0.5 * x), 1:0)
     (Float64 === Collects.EmptyIteratorHandling.@default_eltype iterator) &&
-    @test [] == (@inferred Collect(; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference)(Vector, iterator))::Vector{Float64}
+    @test [] == (@inferred collect_as(Vector, iterator; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference))::Vector{Float64}
 end
 
 module TestAqua
