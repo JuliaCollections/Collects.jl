@@ -103,6 +103,10 @@ module Collects
         end
     end
 
+    Base.@constprop :aggressive function length_int(collection)
+        Int(length(collection))::Int
+    end
+
     Base.@constprop :aggressive function push!!(coll::Set, elem)
         elt = eltype(coll)
         if elem isa elt
@@ -110,7 +114,7 @@ module Collects
         else
             let E = typejoin(typeof(elem), elt)
                 ret = Set{E}((elem,))
-                ret = sizehint!(ret, Int(length(coll))::Int)
+                ret = sizehint!(ret, length_int(coll))
                 union!(ret, coll)
             end
         end
@@ -122,7 +126,7 @@ module Collects
             push!(coll, elem)
         else
             let E = typejoin(typeof(elem), elt)
-                ret = Vector{E}(undef, Int(length(coll))::Int + 1)
+                ret = Vector{E}(undef, length_int(coll) + 1)
                 ret = copyto!(ret, coll)
                 ret[end] = elem
                 ret
@@ -258,7 +262,7 @@ module Collects
     end
 
     Base.@constprop :aggressive function collect_as_vectorlike_with_known_eltype_and_length(::Type{V}, collection) where {V <: AbstractVector}
-        vec = V(undef, Int(length(collection))::Int)
+        vec = V(undef, length_int(collection))
         copyto!(vec, collection)
     end
 
