@@ -213,6 +213,9 @@ module Collects
         end
     end
 
+    Base.@constprop :aggressive function collect_as_set_with_known_eltype(::Type{T}, collection::Set{T}) where {T}
+        copy(collection)
+    end
     Base.@constprop :aggressive function collect_as_set_with_known_eltype(::Type{T}, collection) where {T}
         ret = Set{T}()
         foreach(Base.Fix1(push!, ret), collection)
@@ -274,7 +277,9 @@ module Collects
 
     Base.@constprop :aggressive function collect_as_array_with_known_eltype(::Type{T}, ndims::Int, collection) where {T}
         ndims = check_ndims_consistency(ndims, collection)
-        if iszero(ndims)
+        if collection isa Array{T, ndims}
+            copy(collection)
+        elseif iszero(ndims)
             let e = only(collection)
                 ret = Array{T, 0}(undef)
                 ret[] = e
@@ -333,6 +338,9 @@ module Collects
     end
 
     if optional_memory !== ()
+        Base.@constprop :aggressive function collect_as_memory_with_known_eltype_and_known_length(::Type{T}, collection::Memory{T}) where {T}
+            copy(collection)
+        end
         Base.@constprop :aggressive function collect_as_memory_with_known_eltype_and_known_length(::Type{T}, collection) where {T}
             collect_as_vectorlike_with_known_eltype_and_length(Memory{T}, collection)
         end
