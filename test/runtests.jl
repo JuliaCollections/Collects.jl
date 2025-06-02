@@ -27,6 +27,8 @@ using Test
     end
 
     @testset "`Set`" begin
+        @test Set((1, 2)) == (@inferred collect_as(Set{Int}, Set{Int}((1, 2))))::Set{Int}
+        @test Set((1, 2)) == (@inferred collect_as(Set{Int}, Set{Float32}((1, 2))))::Set{Int}
         @test Set((1, 2)) == (@inferred collect_as(Set, [1, 1, 2]))::Set{Int}
         @test Set((1, 2)) == (@inferred collect_as(Set{Int}, Float32[1, 1, 2]))::Set{Int}
         @test_throws ArgumentError collect_as(Set, Iterators.map((x -> 3 * x), Number[]))
@@ -37,11 +39,19 @@ using Test
 
     @testset "`Array`" begin
         @testset "0D" begin
+            @test fill(3) == (@inferred collect_as(Array{Int}, fill(3)))::Array{Int, 0}
+            @test fill(3) == (@inferred collect_as(Array{Int, 0}, fill(3)))::Array{Int, 0}
+            @test fill(3) == (@inferred collect_as(Array{Int}, fill(3.0)))::Array{Int, 0}
+            @test fill(3) == (@inferred collect_as(Array{Int, 0}, fill(3.0)))::Array{Int, 0}
             @test fill(3) == (@inferred collect_as(Array{<:Any, 0}, 3))::Array{Int, 0}
             @test fill(3) == (@inferred collect_as(Array{Float32, 0}, 3))::Array{Float32, 0}
             @test fill(9) == (@inferred collect_as(Array{<:Any, 0}, Iterators.map((x -> 3 * x), 3)))::Array{Int, 0}
         end
         @testset "1D" begin
+            @test [3] == (@inferred collect_as(Array{Int}, [3]))::Vector{Int}
+            @test [3] == (@inferred collect_as(Vector{Int}, [3]))::Vector{Int}
+            @test [3] == (@inferred collect_as(Array{Int}, Float32[3]))::Vector{Int}
+            @test [3] == (@inferred collect_as(Vector{Int}, Float32[3]))::Vector{Int}
             @test [9] == (@inferred collect_as(Vector, Iterators.map((x -> 3 * x), 3)))::Vector{Int}
             @test [1, 3] == (@inferred collect_as(Array, Iterators.filter(isodd, 1:4)))::Vector{Int}
             @test [1, 3] == (@inferred collect_as(Array{Int}, Iterators.map(Float32, Iterators.filter(isodd, 1:4))))::Vector{Int}
@@ -57,6 +67,8 @@ using Test
 
     (@isdefined Memory) &&
     @testset "`Memory`" begin
+        @test [1, 2] == (@inferred collect_as(Memory{Int}, Memory{Int}([1, 2])))::Memory{Int}
+        @test [1, 2] == (@inferred collect_as(Memory{Int}, Memory{Float32}([1, 2])))::Memory{Int}
         @test [1, 2, 3] == (@inferred collect_as(Memory, [1, 2, 3]))::Memory{Int}
         @test [2, 4, 6] == (@inferred collect_as(Memory, Iterators.map((x -> 2 * x), (1, 2, 3))))::Memory{Int}
         @test [1, 2, 3] == (@inferred collect_as(Memory{Int}, Float32[1, 2, 3]))::Memory{Int}
