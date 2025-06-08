@@ -161,6 +161,12 @@ module Collects
         check_ndims_consistency_impl(ndims, infer_ndims(collection))
     end
 
+    const IteratorHasLength = Union{Base.HasLength, Base.HasShape}
+
+    Base.@constprop :aggressive function iterator_has_length(iterator)
+        Base.IteratorSize(iterator) isa IteratorHasLength
+    end
+
     # Prevent accidental type piracy in dependent packages.
     function (::Collect)(::Type{Union{}}, ::Any)
         throw(ArgumentError("`Union{}` is not a type of a collection"))
@@ -287,7 +293,7 @@ module Collects
             end
         else
             let V = Vector{T}
-                vec = if Base.IteratorSize(collection) isa Union{Base.HasLength, Base.HasShape}
+                vec = if iterator_has_length(collection)
                     collect_as_vectorlike_with_known_eltype_and_length(V, collection)
                 else
                     collect_as_vector_with_known_eltype(V, collection)
@@ -349,7 +355,7 @@ module Collects
             collect_as_memory_with_known_eltype_and_known_length(T, vec)
         end
         Base.@constprop :aggressive function collect_as_memory_with_known_eltype(::Type{T}, collection) where {T}
-            if Base.IteratorSize(collection) isa Union{Base.HasLength, Base.HasShape}
+            if iterator_has_length(collection)
                 collect_as_memory_with_known_eltype_and_known_length(T, collection)
             else
                 collect_as_memory_with_known_eltype_and_unknown_length(T, collection)
