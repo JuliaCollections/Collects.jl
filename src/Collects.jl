@@ -134,6 +134,13 @@ module Collects
         end
     end
 
+    Base.@constprop :aggressive function append!!(x::Union{Set, Vector}, y)
+        for e ∈ y
+            x = push!!(x, e)
+        end
+        x
+    end
+
     Base.@constprop :aggressive function zeros_tuple(n::Int)
         ntuple(Returns(0), Val(n))
     end
@@ -211,10 +218,7 @@ module Collects
         else
             let (fir, rest) = iter
                 coll = Set((fir,))
-                for e ∈ rest
-                    coll = push!!(coll, e)
-                end
-                coll
+                append!!(coll, rest)
             end
         end
     end
@@ -241,6 +245,39 @@ module Collects
         collect_as_set_with_known_eltype(T, collection)
     end
 
+    Base.@constprop :aggressive function collect_as_vector_with_initial(initial::Vector, initial_length::Int, next, rest)
+        i = Base.OneTo(initial_length)
+        ini = initial[i]  # TODO: unnecessary copy, could be avoided by inlining the `push!!` in the next line
+        vec = push!!(ini, next)
+        append!!(vec, rest)
+    end
+
+    Base.@constprop :aggressive function collect_as_vector_with_unknown_eltype_and_known_length(first, rest, collection)
+        len = length_int(collection)
+        T = typeof(first)
+        vec = Vector{T}(undef, len)
+        i = 1
+        vec[i] = first
+        while true
+            iter = Iterators.peel(rest)
+            if iter === nothing
+                break
+            end
+            (next, rest) = iter
+            if next isa T
+                i += 1
+                vec[i] = next
+            else
+                return collect_as_vector_with_initial(vec, i, next, rest)
+            end
+        end
+        vec
+    end
+
+    Base.@constprop :aggressive function collect_as_vector_with_unknown_eltype_and_unknown_length(first, rest)
+        append!!([first], rest)
+    end
+
     Base.@constprop :aggressive function collect_as_array_with_unknown_eltype(e::E, ndims::Int, collection) where {E}
         ndims = check_ndims_consistency(ndims, collection)
         if iszero(ndims)
@@ -255,9 +292,10 @@ module Collects
                     Array{e(collection), ndims}(undef, zeros_tuple(ndims))
                 else
                     let (fir, rest) = iter
-                        vec = [fir]
-                        for e ∈ rest
-                            vec = push!!(vec, e)
+                        vec = if iterator_has_length(collection)
+                            collect_as_vector_with_unknown_eltype_and_known_length(fir, rest, collection)
+                        else
+                            collect_as_vector_with_unknown_eltype_and_unknown_length(fir, rest)
                         end
                         if isone(ndims)
                             vec
