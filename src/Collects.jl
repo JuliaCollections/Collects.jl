@@ -29,7 +29,7 @@ module Collects
 
         Throw an `ArgumentError`.
         """
-        function just_throws(::Any)
+        @noinline function just_throws(::Any)
             throw(err)
         end
         if isdefined(Base, Symbol("@default_eltype"))
@@ -76,7 +76,7 @@ module Collects
             if TypeUtil.is_precise(s)
                 return s
             end
-            just_throws(iterator)
+            @noinline just_throws(iterator)
         end
     end
 
@@ -158,8 +158,11 @@ module Collects
     end
 
     Base.@constprop :aggressive function check_ndims_consistency_impl(output::Int, input::Int)
+        @noinline function mismatch_throw(output::Int, input::Int)
+            throw(DimensionMismatch(lazy"dimension count mismatch: can't collect $input dimensions into $output dimensions"))
+        end
         if (!isone(output)) && (output != input)
-            throw(DimensionMismatch("dimension count mismatch: can't collect $input dimensions into $output dimensions"))
+            @noinline mismatch_throw(output, input)
         end
         output
     end
@@ -175,7 +178,7 @@ module Collects
     end
 
     # Prevent accidental type piracy in dependent packages.
-    function (::Collect)(::Type{Union{}}, ::Any)
+    @noinline function (::Collect)(::Type{Union{}}, ::Any)
         throw(ArgumentError("`Union{}` is not a type of a collection"))
     end
 
@@ -449,8 +452,11 @@ module Collects
     end
 
     Base.@constprop :aggressive function (collect::Collect)(type::ConstructorUnionRough, collection)
-        if Base.IteratorSize(collection) === Base.IsInfinite()
+        @noinline function infinite_throw()
             throw(ArgumentError("can't collect infinitely many elements into a finite collection"))
+        end
+        if Base.IteratorSize(collection) === Base.IsInfinite()
+            @noinline infinite_throw()
         end
         collect_as_common(collect.empty_iterator_handler, TypeUtil.normalize(type), collection)
     end
