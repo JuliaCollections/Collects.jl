@@ -31,7 +31,7 @@ The motivation for creating this package is overcoming these issues of the `coll
 
 * The `collect` function may rely on type inference to determine the element type of the output type when the iterator is empty and the element type wasn't specified by the caller.
 
-    * This package lets the caller decide how is the element type of an empty iterator is determined.
+    * This package lets the caller decide how the element type of an empty iterator is determined.
 
         * By default, type inference is not used.
 
