@@ -181,9 +181,13 @@ module Collects
         Base.IteratorSize(iterator) isa IteratorHasLength
     end
 
-    # Prevent accidental type piracy in dependent packages.
-    @noinline function (::Collect)(::Type{Union{}}, ::Any)
+    @noinline function throw_err_empty_union()
         throw(ArgumentError("`Union{}` is not a type of a collection"))
+    end
+
+    # Prevent accidental type piracy in dependent packages.
+    function (::Collect)(::Type{Union{}}, ::Any)
+        throw_err_empty_union()
     end
 
     const optional_memory = (@isdefined Memory) ? (Memory,) : ()
