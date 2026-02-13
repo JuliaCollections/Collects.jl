@@ -474,4 +474,23 @@ module Collects
         c = Collect(; empty_iterator_handler)
         c(T, collection)
     end
+
+    """
+        collect_as(output_type::Type)
+
+    Return a callable which:
+
+    * Takes a collection, `collection`, as the only positional argument.
+
+    * Takes the same keyword arguments as the `collect_as` method with two positional arguments. Say, `kwargs`.
+
+    * Calls `collect_as(output_type, collection; kwargs...)` and returns the result.
+
+    Mostly equivalent to `Base.Fix1(collect_as, output_type)`.
+    """
+    Base.@constprop :aggressive function collect_as(::Type{T}) where {T}
+        Base.@constprop :aggressive function collect_as_with_fixed_requested_output_type(collection; empty_iterator_handler::EIH = just_throws) where {EIH}
+            collect_as(T, collection; empty_iterator_handler)
+        end
+    end
 end
