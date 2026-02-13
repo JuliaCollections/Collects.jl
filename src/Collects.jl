@@ -211,24 +211,73 @@ module Collects
         end,
     }
 
-    const ConstructorUnionFineInvariant = Union{
-        Type{Set},
+    const ConstructorUnionFineInvariantWithEltype = Union{
         (Type{Set{T}} where {T}),
-        Type{Array},
         (Type{Array{T}} where {T}),
+        (Type{Array{T, N}} where {T, N}),
+        if optional_memory === ()
+            Union{}
+        else
+            Type{Memory{T}} where {T}
+        end,
+    }
+
+    const ConstructorUnionFineInvariantWithoutEltype = Union{
+        Type{Set},
+        Type{Array},
+        (Type{Array{T, N} where {T}} where {N}),
+        if optional_memory === ()
+            Union{}
+        else
+            Type{Memory}
+        end,
+    }
+
+    const ConstructorUnionFineInvariant = Union{
+        ConstructorUnionFineInvariantWithEltype,
+        ConstructorUnionFineInvariantWithoutEltype,
+    }
+
+    const ConstructorUnionFineInvariantWithNdims = Union{
         (Type{Array{T, N} where {T}} where {N}),
         (Type{Array{T, N}} where {T, N}),
         if optional_memory === ()
             Union{}
         else
-            let M = only(optional_memory)
-                Union{
-                    Type{M},
-                    (Type{M{T}} where {T}),
-                }
-            end
+            Union{
+                Type{Memory},
+                (Type{Memory{T}} where {T}),
+            }
         end,
     }
+
+    const ConstructorUnionFineInvariantWithoutNdims = Union{
+        Type{Array},
+        (Type{Array{T}} where {T}),
+    }
+
+    Base.@constprop :aggressive function type_predicate_exhaustive(type::Type; true_supertype::Type{<:Type}, false_supertype::Type{<:Type})
+        let r
+            if type isa true_supertype
+                r = true
+            elseif type isa false_supertype
+                r = false
+            end
+            r
+        end
+    end
+
+    Base.@constprop :aggressive function type_has_eltype(type::Type)
+        true_supertype = ConstructorUnionFineInvariantWithEltype
+        false_supertype = ConstructorUnionFineInvariantWithoutEltype
+        type_predicate_exhaustive(type; true_supertype, false_supertype)
+    end
+
+    Base.@constprop :aggressive function type_has_ndims(type::Type)
+        true_supertype = ConstructorUnionFineInvariantWithNdims
+        false_supertype = ConstructorUnionFineInvariantWithoutNdims
+        type_predicate_exhaustive(type; true_supertype, false_supertype)
+    end
 
     Base.@constprop :aggressive function collect_as_set_with_unknown_eltype(e::E, collection) where {E}
         iter = Iterators.peel(collection)
@@ -249,19 +298,6 @@ module Collects
         ret = Set{T}()
         foreach(Base.Fix1(push!, ret), collection)
         ret
-    end
-
-    Base.@constprop :aggressive function collect_as_set(e::E, ::Type{Set}, collection) where {E}
-        T = eltype(collection)
-        if TypeUtil.is_precise(T)
-            collect_as_set_with_known_eltype(T, collection)
-        else
-            collect_as_set_with_unknown_eltype(e, collection)
-        end
-    end
-
-    Base.@constprop :aggressive function collect_as_set(::Any, ::Type{Set{T}}, collection) where {T}
-        collect_as_set_with_known_eltype(T, collection)
     end
 
     Base.@constprop :aggressive function collect_as_vector_with_initial(initial::Vector, initial_length::Int, next, rest)
@@ -361,42 +397,6 @@ module Collects
         end
     end
 
-    Base.@constprop :aggressive function collect_as_array_with_optional_eltype(e::E, ::Type{T}, N::Int, collection) where {E, T}
-        if TypeUtil.is_precise(T)
-            collect_as_array_with_known_eltype(T, N, collection)
-        else
-            collect_as_array_with_unknown_eltype(e, N, collection)
-        end
-    end
-
-    Base.@constprop :aggressive function collect_as_array(e::E, ::Type{Array}, collection) where {E}
-        T = eltype(collection)
-        N = infer_ndims(collection)
-        collect_as_array_with_optional_eltype(e, T, N, collection)
-    end
-
-    Base.@constprop :aggressive function collect_as_array(::Any, ::Type{Array{T}}, collection) where {T}
-        N = infer_ndims(collection)
-        collect_as_array_with_known_eltype(T, N, collection)
-    end
-
-    Base.@constprop :aggressive function collect_as_array(e::E, ::Type{Array{T, N} where {T}}, collection) where {E, N}
-        T = eltype(collection)
-        collect_as_array_with_optional_eltype(e, T, N, collection)
-    end
-
-    Base.@constprop :aggressive function collect_as_array(::Any, ::Type{Array{T, N}}, collection) where {T, N}
-        collect_as_array_with_known_eltype(T, N, collection)
-    end
-
-    Base.@constprop :aggressive function collect_as_common_invariant(e::E, ::Type{C}, collection) where {E, C <: Set}
-        collect_as_set(e, C, collection)
-    end
-
-    Base.@constprop :aggressive function collect_as_common_invariant(e::E, ::Type{C}, collection) where {E, C <: Array}
-        collect_as_array(e, C, collection)
-    end
-
     if optional_memory !== ()
         Base.@constprop :aggressive function collect_as_memory_with_known_eltype_and_known_length(::Type{T}, collection::Memory{T}) where {T}
             copy(collection)
@@ -419,21 +419,44 @@ module Collects
             vec = collect_as_array_with_unknown_eltype(e, 1, collection)
             collect_as_memory_with_known_eltype(eltype(vec), vec)
         end
-        Base.@constprop :aggressive function collect_as_memory_with_optional_eltype(e::E, ::Type{T}, collection) where {E, T}
-            if TypeUtil.is_precise(T)
-                collect_as_memory_with_known_eltype(T, collection)
-            else
-                collect_as_memory_with_unknown_eltype(e, collection)
+    end
+
+    Base.@constprop :aggressive function collect_as_common_invariant(e::E, type::Type, collection) where {E}
+        has_eltype = type_has_eltype(type)
+        elt = if has_eltype
+            eltype(type)
+        else
+            eltype(collection)
+        end
+        subtypes_set = type <: Set
+        subtypes_memory = (optional_memory !== ()) && (type <: Memory)
+        subtypes_array = type <: Array
+        let r, n
+            if subtypes_array
+                n = if type_has_ndims(type)
+                    ndims(type)::Int
+                else
+                    infer_ndims(collection)::Int
+                end
             end
-        end
-        Base.@constprop :aggressive function collect_as_memory(e::E, ::Type{only(optional_memory)}, collection) where {E}
-            collect_as_memory_with_optional_eltype(e, eltype(collection), collection)
-        end
-        Base.@constprop :aggressive function collect_as_memory(::Any, ::Type{only(optional_memory){T}}, collection) where {T}
-            collect_as_memory_with_known_eltype(T, collection)
-        end
-        Base.@constprop :aggressive function collect_as_common_invariant(e::E, ::Type{C}, collection) where {E, C <: only(optional_memory)}
-            collect_as_memory(e, C, collection)
+            if has_eltype || TypeUtil.is_precise(elt)
+                if subtypes_set
+                    r = collect_as_set_with_known_eltype(elt, collection)
+                elseif subtypes_memory
+                    r = collect_as_memory_with_known_eltype(elt, collection)
+                elseif subtypes_array
+                    r = collect_as_array_with_known_eltype(elt, n, collection)
+                end
+            else
+                if subtypes_set
+                    r = collect_as_set_with_unknown_eltype(e, collection)
+                elseif subtypes_memory
+                    r = collect_as_memory_with_unknown_eltype(e, collection)
+                elseif subtypes_array
+                    r = collect_as_array_with_unknown_eltype(e, n, collection)
+                end
+            end
+            r
         end
     end
 
