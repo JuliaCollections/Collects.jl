@@ -63,6 +63,10 @@ end
             @test [1, 3] == (@inferred collect_as(Array{Int}, Iterators.map(Float32, Iterators.filter(isodd, 1:4))))::Vector{Int}
             @test_throws ArgumentError collect_as(Array, Number[])
             @test [3, 6] == (@inferred collect_as(Vector, Iterators.map((x -> 3 * x), (1.0, 2))))::Vector{Real}
+            @test let tup = (false, Int8(1), Int16(2), Int32(3), Int64(4), Int128(5), UInt8(6), UInt16(7), UInt32(8), UInt64(9), UInt128(10))
+                it = Iterators.map(Base.Fix1(+, 3), Iterators.filter(iseven, tup))
+                ([0, 2, 4, 6, 8, 10] .+ 3) == collect_as(Vector, it)::Vector{Integer}
+            end
         end
         @testset "2D" begin
             @test reshape(1:4, (2, 2)) == collect_as(Matrix, reshape(1:4, (2, 2)))::Matrix{Int}
@@ -79,6 +83,10 @@ end
         @test [2, 4, 6] == (@inferred collect_as(Memory, Iterators.map((x -> 2 * x), (1, 2, 3))))::Memory{Int}
         @test [1, 2, 3] == (@inferred collect_as(Memory{Int}, Float32[1, 2, 3]))::Memory{Int}
         @test [1, 3] == (@inferred collect_as(Memory, Iterators.filter(isodd, 1:4)))::Memory{Int}
+        @test let tup = (false, Int8(1), Int16(2), Int32(3), Int64(4), Int128(5), UInt8(6), UInt16(7), UInt32(8), UInt64(9), UInt128(10))
+            it = Iterators.map(Base.Fix1(+, 3), Iterators.filter(iseven, tup))
+            ([0, 2, 4, 6, 8, 10] .+ 3) == collect_as(Memory, it)::Memory{Integer}
+        end
     end
 end
 
