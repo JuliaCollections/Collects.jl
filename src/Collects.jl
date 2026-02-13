@@ -111,16 +111,32 @@ module Collects
         Int(length(collection))::Int
     end
 
+    Base.@constprop :aggressive function typejoin_typeof_eltype(; coll, elem)
+        elt = eltype(coll)
+        typ = typeof(elem)
+        typejoin(elt, typ)
+    end
+
+    Base.@constprop :aggressive function push(coll::Set, elem)
+        E = typejoin_typeof_eltype(; coll, elem)
+        ret = Set{E}(coll)
+        push!(ret, elem)
+    end
+
+    Base.@constprop :aggressive function push(coll::Vector, elem)
+        E = typejoin_typeof_eltype(; coll, elem)
+        ret = Vector{E}(undef, length_int(coll) + 1)
+        ret = copyto!(ret, coll)
+        ret[end] = elem
+        ret
+    end
+
     Base.@constprop :aggressive function push!!(coll::Set, elem)
         elt = eltype(coll)
         if elem isa elt
             push!(coll, elem)
         else
-            let E = typejoin(typeof(elem), elt)
-                ret = Set{E}((elem,))
-                ret = sizehint!(ret, length_int(coll))
-                union!(ret, coll)
-            end
+            push(coll, elem)
         end
     end
 
@@ -129,12 +145,7 @@ module Collects
         if elem isa elt
             push!(coll, elem)
         else
-            let E = typejoin(typeof(elem), elt)
-                ret = Vector{E}(undef, length_int(coll) + 1)
-                ret = copyto!(ret, coll)
-                ret[end] = elem
-                ret
-            end
+            push(coll, elem)
         end
     end
 
