@@ -23,14 +23,18 @@ module Collects
     module EmptyIteratorHandling
         export just_throws, may_use_type_inference
         using ..TypeUtil
-        const err = ArgumentError("couldn't figure out an appropriate element type")
+        @noinline function throw_err_eltype(collection_type::DataType)
+             err = ArgumentError(lazy"couldn't figure out an appropriate element type for collection of type $collection_type")
+             throw(err)
+        end
         """
             just_throws(iterator)::Union{}
 
         Throw an `ArgumentError`.
         """
-        @noinline function just_throws(::Any)
-            throw(err)
+        function just_throws(iterator)
+            t = typeof(iterator)
+            throw_err_eltype(t)
         end
         if isdefined(Base, Symbol("@default_eltype"))
             macro default_eltype(itr)
@@ -76,7 +80,7 @@ module Collects
             if TypeUtil.is_precise(s)
                 return s
             end
-            @noinline just_throws(iterator)
+            just_throws(iterator)
         end
     end
 
