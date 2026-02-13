@@ -137,16 +137,7 @@ module Collects
         push_vector_prefix(coll, len, elem)
     end
 
-    Base.@constprop :aggressive function push!!(coll::Set, elem)
-        elt = eltype(coll)
-        if elem isa elt
-            push!(coll, elem)
-        else
-            push(coll, elem)
-        end
-    end
-
-    Base.@constprop :aggressive function push!!(coll::Vector, elem)
+    Base.@constprop :aggressive function push!!(coll::Union{Set, Vector}, elem)
         elt = eltype(coll)
         if elem isa elt
             push!(coll, elem)
