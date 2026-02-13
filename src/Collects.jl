@@ -123,12 +123,18 @@ module Collects
         push!(ret, elem)
     end
 
-    Base.@constprop :aggressive function push(coll::Vector, elem)
+    Base.@constprop :aggressive function push_vector_prefix(coll::Vector, prefix_length::Int, elem)
         E = typejoin_typeof_eltype(; coll, elem)
-        ret = Vector{E}(undef, length_int(coll) + 1)
-        ret = copyto!(ret, coll)
+        prefix = @view coll[begin:(begin + (prefix_length - 1))]
+        ret = Vector{E}(undef, prefix_length + 1)
+        ret = copyto!(ret, prefix)
         ret[end] = elem
         ret
+    end
+
+    Base.@constprop :aggressive function push(coll::Vector, elem)
+        len = length_int(coll)
+        push_vector_prefix(coll, len, elem)
     end
 
     Base.@constprop :aggressive function push!!(coll::Set, elem)
@@ -268,9 +274,7 @@ module Collects
     end
 
     Base.@constprop :aggressive function collect_as_vector_with_initial(initial::Vector, initial_length::Int, next, rest)
-        i = Base.OneTo(initial_length)
-        ini = initial[i]  # TODO: unnecessary copy, could be avoided by inlining the `push!!` in the next line
-        vec = push!!(ini, next)
+        vec = push_vector_prefix(initial, initial_length, next)
         append!!(vec, rest)
     end
 
