@@ -278,8 +278,7 @@ module Collects
         append!!(vec, rest)
     end
 
-    Base.@constprop :aggressive function collect_as_vector_with_unknown_eltype_and_known_length(first, rest, collection)
-        len = length_int(collection)
+    Base.@constprop :aggressive function collect_as_vector_with_unknown_eltype_and_known_length(first, rest, len::Int)
         T = typeof(first)
         vec = Vector{T}(undef, len)
         i = 1
@@ -319,7 +318,7 @@ module Collects
                 else
                     let (fir, rest) = iter
                         vec = if iterator_has_length(collection)
-                            collect_as_vector_with_unknown_eltype_and_known_length(fir, rest, collection)
+                            collect_as_vector_with_unknown_eltype_and_known_length(fir, rest, length_int(collection))
                         else
                             collect_as_vector_with_unknown_eltype_and_unknown_length(fir, rest)
                         end
