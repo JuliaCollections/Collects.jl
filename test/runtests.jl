@@ -1,10 +1,16 @@
 using Collects
 using Test
 
+function collect_as_through_fixing_single_argument(::Type{T}, collection; empty_iterator_handler::EIH = EmptyIteratorHandling.just_throws) where {T, EIH}
+    f = collect_as(T)
+    f(collection; empty_iterator_handler)
+end
+
 @testset "collect_as: $collect_as" for collect_as ∈ (
     collect_as,
     Collect(; empty_iterator_handler = EmptyIteratorHandling.just_throws),
     Collect(; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference),
+    collect_as_through_fixing_single_argument,
 )
     @testset "bottom type" begin
         @test_throws ArgumentError collect_as(Union{}, ())
@@ -78,8 +84,14 @@ end
 
 @testset "type inference" begin
     iterator = Iterators.map((x -> 0.5 * x), 1:0)
-    (Float64 === Collects.EmptyIteratorHandling.@default_eltype iterator) &&
-    @test [] == (@inferred collect_as(Vector, iterator; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference))::Vector{Float64}
+    if Float64 === Collects.EmptyIteratorHandling.@default_eltype iterator
+        for collect_as ∈ (
+            collect_as,
+            collect_as_through_fixing_single_argument,
+        )
+            @test [] == (@inferred collect_as(Vector, iterator; empty_iterator_handler = EmptyIteratorHandling.may_use_type_inference))::Vector{Float64}
+        end
+    end
 end
 
 module TestAqua
