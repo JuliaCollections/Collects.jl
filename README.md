@@ -110,6 +110,21 @@ julia> c(Vector, (3, 3.0))
  3.0
 ```
 
+`collect_as` additionally allows being called with only one argument, like `collect_as(output_type)`. `collect_as(t)` behaves very similarly to `Base.Fix1(collect_as, t)`, basically it is a partial application of the function. Example:
+
+```julia-repl
+julia> c = collect_as(Vector);
+
+julia> m = c ∘ Iterators.map;
+
+julia> m(sin, 0:3)
+4-element Vector{Float64}:
+ 0.0
+ 0.8414709848078965
+ 0.9092974268256817
+ 0.1411200080598672
+```
+
 ## Implementations
 
 This package implements the interface for some `Base` types, including:
