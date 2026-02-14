@@ -418,7 +418,7 @@ module Collects
         Base.@constprop :aggressive function collect_as_memory_with_unknown_eltype_and_known_length(e::E, collection) where {E}
             iter = Iterators.peel(collection)
             if iter === nothing
-                Memory{e(collection)}(undef, 0)
+                return Memory{e(collection)}(undef, 0)
             end
             (fir, rest) = iter
             vec = collect_as_vector_with_unknown_eltype_and_known_length(Memory, fir, rest, length_int(collection))
