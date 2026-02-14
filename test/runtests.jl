@@ -87,7 +87,12 @@ end
             it = Iterators.map(Base.Fix1(+, 3), Iterators.filter(iseven, tup))
             ([0, 2, 4, 6, 8, 10] .+ 3) == collect_as(Memory, it)::Memory{Integer}
         end
-        @test [] == (@inferred collect_as(Memory, ()))::Memory{Union{}}
+    end
+end
+
+@testset "empty iterator handling" begin
+    for typ ∈ (Set, Vector, ((@isdefined Memory) ? (Memory,) : ())...)
+        @test isempty((@inferred collect_as(typ, Iterators.map(Base.Fix1(+, 3), ()); empty_iterator_handler = Returns(AbstractFloat)))::typ{AbstractFloat})
     end
 end
 
