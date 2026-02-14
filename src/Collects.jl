@@ -123,7 +123,7 @@ module Collects
         push!(ret, elem)
     end
 
-    Base.@constprop :aggressive function push_vector_prefix(coll::Vector, prefix_length::Int, elem)
+    Base.@constprop :aggressive function push_vector_prefix(coll, prefix_length::Int, elem)
         E = typejoin_typeof_eltype(; coll, elem)
         prefix = @view coll[begin:(begin + (prefix_length - 1))]
         ret = Vector{E}(undef, prefix_length + 1)
@@ -300,14 +300,14 @@ module Collects
         ret
     end
 
-    Base.@constprop :aggressive function collect_as_vector_with_initial(initial::Vector, initial_length::Int, next, rest)
+    Base.@constprop :aggressive function collect_as_vector_with_initial(initial, initial_length::Int, next, rest)
         vec = push_vector_prefix(initial, initial_length, next)
         append!!(vec, rest)
     end
 
-    Base.@constprop :aggressive function collect_as_vector_with_unknown_eltype_and_known_length(first, rest, len::Int)
+    Base.@constprop :aggressive function collect_as_vector_with_unknown_eltype_and_known_length(type::Type, first, rest, len::Int)
         T = typeof(first)
-        vec = Vector{T}(undef, len)
+        vec = type{T}(undef, len)
         i = 1
         vec[i] = first
         while true
@@ -345,7 +345,7 @@ module Collects
                 else
                     let (fir, rest) = iter
                         vec = if iterator_has_length(collection)
-                            collect_as_vector_with_unknown_eltype_and_known_length(fir, rest, length_int(collection))
+                            collect_as_vector_with_unknown_eltype_and_known_length(Vector, fir, rest, length_int(collection))
                         else
                             collect_as_vector_with_unknown_eltype_and_unknown_length(fir, rest)
                         end
@@ -415,9 +415,29 @@ module Collects
                 collect_as_memory_with_known_eltype_and_unknown_length(T, collection)
             end
         end
-        Base.@constprop :aggressive function collect_as_memory_with_unknown_eltype(e::E, collection) where {E}
+        Base.@constprop :aggressive function collect_as_memory_with_unknown_eltype_and_known_length(e::E, collection) where {E}
+            iter = Iterators.peel(collection)
+            if iter === nothing
+                return Memory{e(collection)}(undef, 0)
+            end
+            (fir, rest) = iter
+            vec = collect_as_vector_with_unknown_eltype_and_known_length(Memory, fir, rest, length_int(collection))
+            if vec isa Memory
+                vec
+            else
+                collect_as_memory_with_known_eltype(eltype(vec), vec)
+            end
+        end
+        Base.@constprop :aggressive function collect_as_memory_with_unknown_eltype_and_unknown_length(e::E, collection) where {E}
             vec = collect_as_array_with_unknown_eltype(e, 1, collection)
             collect_as_memory_with_known_eltype(eltype(vec), vec)
+        end
+        Base.@constprop :aggressive function collect_as_memory_with_unknown_eltype(e::E, collection) where {E}
+            if iterator_has_length(collection)
+                collect_as_memory_with_unknown_eltype_and_known_length(e, collection)
+            else
+                collect_as_memory_with_unknown_eltype_and_unknown_length(e, collection)
+            end
         end
     end
 
