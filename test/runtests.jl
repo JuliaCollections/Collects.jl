@@ -87,6 +87,7 @@ end
             it = Iterators.map(Base.Fix1(+, 3), Iterators.filter(iseven, tup))
             ([0, 2, 4, 6, 8, 10] .+ 3) == collect_as(Memory, it)::Memory{Integer}
         end
+        @test [] == (@inferred collect_as(Memory, ()))::Memory{Union{}}
     end
 end
 
