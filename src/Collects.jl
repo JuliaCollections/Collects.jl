@@ -417,7 +417,7 @@ module Collects
         end
         Base.@constprop :aggressive function collect_as_memory_with_unknown_eltype(e::E, collection) where {E}
             vec = collect_as_array_with_unknown_eltype(e, 1, collection)
-            collect_as_memory_with_known_eltype_and_known_length(eltype(vec), vec)
+            collect_as_memory_with_known_eltype(eltype(vec), vec)
         end
         Base.@constprop :aggressive function collect_as_memory_with_optional_eltype(e::E, ::Type{T}, collection) where {E, T}
             if TypeUtil.is_precise(T)
