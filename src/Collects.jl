@@ -8,12 +8,6 @@ module Collects
         end
     end
 
-    """
-        EmptyIteratorHandling::Module
-
-    Exports [`just_throws`](@ref) and [`may_use_type_inference`](@ref), which are
-    meant as arguments for [`Collect`](@ref).
-    """
     module EmptyIteratorHandling
         export just_throws, may_use_type_inference
         using ..TypeUtil
