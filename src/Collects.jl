@@ -70,7 +70,9 @@ module Collects
         """
         Base.@constprop :aggressive function may_use_type_inference(iterator)
             @inline
-            s = @inline (@default_eltype iterator)
+            s = @inline let  # written in multiple lines like this for compatibility with a bug in the `@inline` macro in Julia v1.11 and below
+                @default_eltype iterator
+            end
             if TypeUtil.is_precise(s)
                 return s
             end
