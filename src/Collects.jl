@@ -2,15 +2,9 @@ module Collects
     export Collect, EmptyIteratorHandling, collect_as
 
     module TypeUtil
-        export is_precise, normalize
+        export is_precise
         Base.@constprop :aggressive function is_precise(::Type{T}) where {T}
             isconcretetype(T) || (T <: Union{})
-        end
-        Base.@constprop :aggressive function normalize(::Type{T}) where {T}
-            function f(::Val{S}) where {S}
-                S  # https://github.com/JuliaLang/julia/discussions/58515
-            end
-            f(Val{T}())
         end
     end
 
@@ -76,7 +70,7 @@ module Collects
         """
         Base.@constprop :aggressive function may_use_type_inference(iterator)
             @inline
-            s = @inline TypeUtil.normalize(@default_eltype iterator)
+            s = @inline @default_eltype iterator
             if TypeUtil.is_precise(s)
                 return s
             end
@@ -481,7 +475,7 @@ module Collects
     end
 
     Base.@constprop :aggressive function collect_as_tuple(::Type{Tuple}, iterator)
-        t = TypeUtil.normalize(eltype(iterator))
+        t = eltype(iterator)
         if isconcretetype(t)
             (collect_as_array_with_known_eltype(t, 1, iterator)...,)
         elseif t <: Union{}
@@ -514,7 +508,7 @@ module Collects
         if Base.IteratorSize(collection) === Base.IsInfinite()
             @noinline infinite_throw()
         end
-        collect_as_common(collect.empty_iterator_handler, TypeUtil.normalize(type), collection)
+        collect_as_common(collect.empty_iterator_handler, type, collection)
     end
 
     """
