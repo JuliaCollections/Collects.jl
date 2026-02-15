@@ -70,7 +70,7 @@ module Collects
         """
         Base.@constprop :aggressive function may_use_type_inference(iterator)
             @inline
-            s = @inline @default_eltype iterator
+            s = @inline (@default_eltype iterator)
             if TypeUtil.is_precise(s)
                 return s
             end
