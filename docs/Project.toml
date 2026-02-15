@@ -1,0 +1,10 @@
+[deps]
+Collects = "21f9cbe0-bb3e-4497-bb29-7cf2711a11d4"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+
+[sources]
+Collects = {path = ".."}
+
+[compat]
+Collects = "1"
+Documenter = "1"
