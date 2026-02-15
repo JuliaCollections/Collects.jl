@@ -6,9 +6,6 @@ CurrentModule = Collects
 
 [Collects.jl](https://github.com/JuliaCollections/Collects.jl) is a software package for the [Julia](https://julialang.org) programming language. It provides functionality and interfaces for collecting the elements of an arbitrary collection into another collection of a specified type. The exported interfaces generalize the `collect` function from `Base` Julia in several ways.
 
-```@index
-```
-
 ## Exported functionality
 
 * `collect_as`, a function: the user-level interface
